@@ -1,0 +1,108 @@
+version: "3.9"
+
+networks:
+  parseable:
+
+volumes:
+  redpanda:
+
+services:
+
+  redpanda:
+    image: docker.redpanda.com/vectorized/redpanda:v22.3.11
+    command:
+      - redpanda start
+      - --smp 1
+      - --overprovisioned
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+    ports:
+      - 8081:8081
+      - 8082:8082
+      - 9092:9092
+      - 9644:9644
+      - 29092:29092
+    volumes:
+      - redpanda:/var/lib/redpanda/data
+    networks:
+      - parseable
+
+  console:
+    image: docker.redpanda.com/vectorized/console:v2.1.1
+    entrypoint: /bin/sh
+    command: -c "echo \"$$CONSOLE_CONFIG_FILE\" > /tmp/config.yml; /app/console"
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["redpanda:29092"]
+          schemaRegistry:
+            enabled: true
+            urls: ["http://redpanda:8081"]
+        redpanda:
+          adminApi:
+            enabled: true
+            urls: ["http://redpanda:9644"]
+        connect:
+          enabled: true
+          clusters:
+            - name: local-connect-cluster
+              url: http://connect:8083
+    ports:
+      - 8080:8080
+    networks:
+      - parseable
+    depends_on:
+      - redpanda
+
+  connect:
+    image: docker.redpanda.com/vectorized/connectors:1.0.0-dev-dff1c57
+    #platform: 'linux/amd64'
+    depends_on:
+      - redpanda
+    ports:
+      - "8083:8083"
+    environment:
+      CONNECT_CONFIGURATION: |
+          key.converter=org.apache.kafka.connect.json.JsonConverter
+          value.converter=org.apache.kafka.connect.json.JsonConverter
+          group.id=connectors-cluster
+          offset.storage.topic=_internal_connectors_offsets
+          config.storage.topic=_internal_connectors_configs
+          status.storage.topic=_internal_connectors_status
+          config.storage.replication.factor=-1
+          offset.storage.replication.factor=-1
+          status.storage.replication.factor=-1
+          offset.flush.interval.ms=1000
+          producer.linger.ms=50
+          producer.batch.size=131072
+          key.converter.schemas.enable=false
+          value.converter.schemas.enable=false
+          plugin.path=/opt/kafka/redpanda-plugins,/tmp
+      CONNECT_BOOTSTRAP_SERVERS: redpanda:29092
+      CONNECT_GC_LOG_ENABLED: "false"
+      CONNECT_HEAP_OPTS: -Xms512M -Xmx512M
+      CONNECT_LOG_LEVEL: info
+    networks:
+      - parseable
+    volumes:
+      - ./http-connector-for-apache-kafka-0.6.0:/opt/kafka/redpanda-plugins/http-connector-for-apache-kafka-0.6.0
+
+  parseable:
+    image: parseable/parseable
+    command: ["parseable", "local-store"]
+    ports:
+     - "8000:8000"
+    environment:
+      - P_FS_DIR=/parseable/data
+      - P_STAGING_DIR=/parseable/staging
+      - P_USERNAME=admin
+      - P_PASSWORD=admin
+    networks:
+      - parseable
+    volumes:
+      - ./data:/parseable/data
+      - ./staging:/parseable/staging
+      
