@@ -1,4 +1,4 @@
-# Streaming data to Parseable with Redpanda and Kafka Connect
+# Unify log data with Redpanda and Parseable
 
 Learn how to integrate [Parseable](https://github.com/parseablehq/parseable) with Redpanda using Kafka Connect and build a log analysis platform.
 
