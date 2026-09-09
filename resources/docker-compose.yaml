@@ -9,7 +9,7 @@ volumes:
 services:
 
   redpanda:
-    image: docker.redpanda.com/vectorized/redpanda:v22.3.11
+    image: docker.redpanda.com/redpandadata/redpanda:v22.3.11
     command:
       - redpanda start
       - --smp 1
@@ -30,7 +30,7 @@ services:
       - parseable
 
   console:
-    image: docker.redpanda.com/vectorized/console:v2.1.1
+    image: docker.redpanda.com/redpandadata/console:v2.1.1
     entrypoint: /bin/sh
     command: -c "echo \"$$CONSOLE_CONFIG_FILE\" > /tmp/config.yml; /app/console"
     environment:
@@ -58,7 +58,7 @@ services:
       - redpanda
 
   connect:
-    image: docker.redpanda.com/vectorized/connectors:1.0.0-dev-dff1c57
+    image: docker.redpanda.com/redpandadata/connectors:v1.0.0
     #platform: 'linux/amd64'
     depends_on:
       - redpanda
